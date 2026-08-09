@@ -1,6 +1,16 @@
 # Projeto de Estrutura de Dados - Controle das Ferramentas de um Laboratório
 Projeto feito com auxílio do Assistente de IA Claude
 
+## Organização do projeto
+
+- `app/`: aplicação Flask; `routes/` contém a API JSON, organizada por domínio (`alunos.py`, `equipamentos.py`, `tecnicos.py`, `pendencias.py`, `emprestimos.py`); `templates/` contém as páginas HTML e `static/` seus arquivos CSS e JavaScript.
+- `migrations/`: histórico e configuração das migrações do banco com Alembic.
+- `run.py`: ponto de entrada para executar a aplicação.
+
+A única interface web está em `app/templates/dashboard.html` e usa os ativos em
+`app/static/css/dashboard.css` e `app/static/js/dashboard.js`. Ela abre em `/`;
+`/front` permanece apenas como atalho de compatibilidade para a mesma página.
+
 ## Decisões assumidas: profundidade e precisão do impacto declarado 
 
 1) Granularidade das entidades
