@@ -115,3 +115,13 @@ Cada decisão segue o padrão: o que **o pedido não especifica** (X) → o que 
 - **O que foi decidido:** validar também `id_tecnico_retirada` e `id_tecnico_devolucao` com `get_or_404`, e proteger a exclusão de entidades com vínculos retornando `409` em vez de deixar o `IntegrityError` vazar como erro 500.
 - **Por que é plausível:** mantém o contrato de erros `{"erro": ...}` e a promessa de "simples de usar".
 - **Por que pode estar inadequada:** originalmente a validação dos técnicos foi omitida (o técnico era tratado como entidade secundária), gerando HTTP 500 para ID digitado errado; a correção adotou `get_or_404`, que devolve `404` genérico — informativo, mas não aponta qual campo específico está errado.
+
+
+## Seção 5: Registro de Tempo:
+- **Horas escrevendo e documentando o código:** aproximadamente 3h
+- **Horas gerando código:** aproximadamente 7h (incluindo parte de debug e fiscalização das mudanças estruturais).
+- **Horas decidindo o que o sistema deveria fazer:** entre 1h e 2h
+
+## Seção 6: Declaração de uso de IA:
+- Uso de Claude Code como agente de código; Gemini e Chatgpt para dúvidas gerais para perguntas sobre o funcionamento de alguns recursos do framework e sobre as vantagens e desvantagens de algumas das minhas ideias de implementação.
+- Por questões de teste, pagamos $5 para utilizar o Claude Code e verificamos que o agente realmente é muito poderoso e cuidadoso ao fazer mudanças estruturais no código e é muito eficiente em fazer e entender o design atual do sistema, ainda que não tenha de fato orquestrado vários agentes, o que o potencializaria ainda mais em uma janela de contexto ainda menor. O único recurso não-nativo utilizado foi um agente de "code-review" (revisão de código do projeto) que está disponível expresso em `.claude`.

@@ -78,7 +78,7 @@ flask --app run db upgrade                             # aplica migração
 flask --app run db downgrade                           # desfaz a última
 ```
 
-## 📁 Estrutura do projeto
+## Estrutura do projeto
 
 ```
 projeto1es/
