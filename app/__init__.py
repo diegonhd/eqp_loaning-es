@@ -1,7 +1,8 @@
 import os
-from flask import Flask
+from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
+from werkzeug.exceptions import HTTPException
 from dotenv import load_dotenv
 
 # Carrega as variaveis do arquivo .env (ex: DATABASE_URL)
@@ -35,5 +36,17 @@ def create_app():
     # Registra as paginas HTML definidas em app/views.py
     from app.views import views_bp
     app.register_blueprint(views_bp)
+
+    # Handler global de erro: toda excecao nao tratada vira JSON {"erro": ...}.
+    # Sem isso, o Flask devolveria uma pagina HTML e o frontend exibiria "Erro 500".
+    @app.errorhandler(Exception)
+    def tratar_erro(e):
+        db.session.rollback()
+        if isinstance(e, HTTPException):
+            # Preserva o status real (404, 405, 400...) com descricao em JSON.
+            return jsonify(erro=e.description), e.code or 500
+        # Erro inesperado: loga o traceback completo e devolve mensagem segura.
+        app.logger.error("Erro nao tratado na API", exc_info=True)
+        return jsonify(erro="Erro interno do servidor."), 500
 
     return app
