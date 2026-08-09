@@ -24,7 +24,7 @@ Cada decisão segue o padrão: o que **o pedido não especifica** (X) → o que 
 | 12 | Como cancelar um empréstimo | `DELETE` remove o registro e libera a unidade (exclusão física) | Manter histórico (cancelamento lógico) | Soft-delete com status `CANCELADO` |
 | 13 | Quem recebe a devolução | A devolução pode ser registrada **sem** informar o técnico | Técnico de devolução obrigatório | Tornar a coluna `NOT NULL` e exigir o campo na tela |
 | 14 | Rejeitar prazo inválido | Validar `dias_prazo > 0`, rejeitando 0/negativos com `400` | Aceitar qualquer inteiro (0/negativo) | Empréstimos nasceriam já vencidos, distorcendo o relatório de atrasos |
-| 15 | Se o histórico de devoluções é consultável | `GET /emprestimos` = "o que está emprestado" (não devolvidos), **sem** endpoint de histórico | Consultar o passado | Novo endpoint/filtro e nova tabela na UI |
+| 15 | Se o histórico de devoluções é consultável | `GET /emprestimos` é um **log completo** (inclui devolvidos, com `status` e `data_hora_devolucao`); apenas `/relatorios/atrasados` restringe a vencidos ativos | Um endpoint só de ativos | Reintroduzir filtro `?status=EM_ANDAMENTO` no listar e ocultar devolvidos na UI |
 
 ---
 
@@ -79,7 +79,7 @@ Cada decisão segue o padrão: o que **o pedido não especifica** (X) → o que 
 ### C2 — Devolução libera a unidade
 
 - **Entrada:** empréstimo ativo em que a unidade está `EMPRESTADO`; enviar `PUT /emprestimos/<id>/devolucao` com `{}`.
-- **Resultado esperado:** resposta **200**; `GET /unidades-equipamento` mostra a unidade com `status: "DISPONIVEL"`; o id **não** aparece mais em `GET /emprestimos`.
+- **Resultado esperado:** resposta **200**; `GET /unidades-equipamento` mostra a unidade com `status: "DISPONIVEL"`; `GET /emprestimos` lista o registro com `status: "DEVOLVIDO"` e `data_hora_devolucao` preenchida (log).
 
 ### C3 — Relatório de atrasados
 

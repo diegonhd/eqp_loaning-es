@@ -45,10 +45,8 @@ def _aluno_tem_pendencia(id_aluno):
 
 @main_bp.route("/emprestimos", methods=["GET"])
 def listar_emprestimos():
-    """Lista os emprestimos em andamento (nao devolvidos)."""
-    emprestimos = Emprestimo.query.filter(
-        Emprestimo.data_hora_devolucao.is_(None)
-    ).all()
+    """Lista todos os emprestimos (log completo, incluindo os devolvidos)."""
+    emprestimos = Emprestimo.query.all()
     return jsonify([
         {
             "id_emprestimo": e.id_emprestimo,
@@ -58,6 +56,9 @@ def listar_emprestimos():
             "tecnico_retirada": e.tecnico_retirada.nome if e.tecnico_retirada else None,
             "data_hora_emprestimo": e.data_hora_emprestimo.isoformat(),
             "data_hora_prevista_devolucao": e.data_hora_prevista_devolucao.isoformat(),
+            "data_hora_devolucao": (
+                e.data_hora_devolucao.isoformat() if e.data_hora_devolucao else None
+            ),
             "status": e.status,
             "observacoes": e.observacoes,
             "atrasado": e.esta_atrasado,

@@ -30,3 +30,6 @@ instance/
 .vscode/
 .DS_Store
 *.swp
+
+# Módulo de testes
+seed.py

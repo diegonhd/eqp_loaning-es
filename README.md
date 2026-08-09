@@ -22,25 +22,61 @@ A aplicação é uma **API REST em Flask** + um **dashboard único em JavaScript
 | Configuração | `python-dotenv` (arquivo `.env`) |
 | Frontend | HTML + Bootstrap (CDN) + JavaScript puro |
 
-## Como rodar
+## Como executar em outra máquina
 
-**Pré-requisitos:** Python 3.x e um PostgreSQL em execução.
+> Guia completo para rodar o sistema **do zero em qualquer máquina**. Pressupõe apenas **Python 3.x** e **PostgreSQL** instalados e em execução. Todas as etapas são feitas no terminal.
 
-### 1. Instalar as dependências
+### 1. Obter o código
+
+Clone o repositório e entre no diretório:
+
+```bash
+git clone <url-do-repositorio>
+cd projeto1es
+```
+
+### 2. Criar o banco de dados
+
+O sistema usa um banco PostgreSQL chamado `laboratorio`. Se ele ainda não existir, crie-o. O nome pode ser outro, desde que a `DATABASE_URL` do passo 5 aponte para ele.
+
+**Com `psql` (terminal):**
+
+```bash
+psql -U postgres -c "CREATE DATABASE laboratorio;"
+```
+
+**Ou pelo pgAdmin:** clique com o botão direito em *Databases* → *Create* → *Database* → informe `laboratorio` como nome e salve.
+
+### 3. Criar e ativar o ambiente virtual (recomendado)
+
+```bash
+python -m venv venv
+```
+
+Ative-o:
+
+```bash
+venv\Scripts\activate        # Windows
+source venv/bin/activate     # Linux / macOS
+```
+
+### 4. Instalar as dependências
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Configurar o ambiente
+### 5. Configurar o ambiente
+
+Crie o arquivo `.env` a partir do modelo:
 
 ```bash
-copy .env.example .env    # Windows
+copy .env.example .env       # Windows
 # ou
-cp .env.example .env      # Unix
+cp .env.example .env         # Linux / macOS
 ```
 
-Edite `.env` e ajuste a `DATABASE_URL` para a conexão do seu PostgreSQL:
+Abra o `.env` e ajuste a `DATABASE_URL` para a conexão do seu PostgreSQL, substituindo `usuario` e `senha` pelas suas credenciais:
 
 ```
 DATABASE_URL=postgresql://usuario:senha@localhost:5432/laboratorio
@@ -48,13 +84,15 @@ DATABASE_URL=postgresql://usuario:senha@localhost:5432/laboratorio
 
 `SECRET_KEY` é opcional e assume um valor de desenvolvimento por padrão.
 
-### 3. Aplicar as migrações do banco
+### 6. Aplicar as migrações do banco
 
 ```bash
 flask --app run db upgrade
 ```
 
-### 4. Executar o servidor
+Isso cria as tabelas (e o histórico de versões do Alembic) no banco.
+
+### 7. Executar o servidor
 
 ```bash
 python run.py
@@ -78,7 +116,11 @@ flask --app run db upgrade                             # aplica migração
 flask --app run db downgrade                           # desfaz a última
 ```
 
-## Estrutura do projeto
+---
+
+## Referência técnica
+
+### Estrutura do projeto
 
 ```
 projeto1es/
@@ -104,7 +146,7 @@ projeto1es/
 └── .env.example
 ```
 
-##  Modelo de dados
+### Modelo de dados
 
 ```
 Equipamento (catálogo)  1 ──── *  UnidadeEquipamento (patrimônio)
@@ -123,7 +165,7 @@ Tecnico (devolução)      1 ──── *  Emprestimo        (id_tecnico_devol
 | `Emprestimo` | Retirada de uma unidade por um aluno | `data_hora_prevista_devolucao`, `data_hora_devolucao`, `status`, `observacoes` |
 | `Pendencia` | Bloqueio/manifestação sobre um aluno | `tipo`, `descricao`, `status` |
 
-### Valores de status
+**Valores de status**
 
 | Campo | Valores possíveis |
 |---|---|
@@ -135,11 +177,11 @@ Tecnico (devolução)      1 ──── *  Emprestimo        (id_tecnico_devol
 
 > O atraso de um empréstimo **não é persistido**: ele é calculado na hora pela propriedade `Emprestimo.esta_atrasado`.
 
-##  API
+### API
 
 Toda a API devolve JSON. Erros seguem o padrão `{"erro": "..."}` com status 4xx; o handler global converte até exceções inesperadas em JSON 500.
 
-### Alunos
+**Alunos**
 
 | Método | Rota | Descrição |
 |---|---|---|
@@ -149,7 +191,7 @@ Toda a API devolve JSON. Erros seguem o padrão `{"erro": "..."}` com status 4xx
 | PUT | `/alunos/<id_aluno>` | Edita aluno |
 | DELETE | `/alunos/<id_aluno>` | Exclui (bloqueado se houver empréstimos ou pendências) |
 
-### Equipamentos e unidades
+**Equipamentos e unidades**
 
 | Método | Rota | Descrição |
 |---|---|---|
@@ -164,7 +206,7 @@ Toda a API devolve JSON. Erros seguem o padrão `{"erro": "..."}` com status 4xx
 | PUT | `/unidades-equipamento/<id_unidade_equipamento>` | Edita unidade (status de unidade com empréstimo ativo é bloqueado) |
 | DELETE | `/unidades-equipamento/<id_unidade_equipamento>` | Exclui (bloqueado se tiver empréstimos) |
 
-### Técnicos
+**Técnicos**
 
 | Método | Rota | Descrição |
 |---|---|---|
@@ -174,17 +216,17 @@ Toda a API devolve JSON. Erros seguem o padrão `{"erro": "..."}` com status 4xx
 | PUT | `/tecnicos/<id_tecnico>` | Edita técnico |
 | DELETE | `/tecnicos/<id_tecnico>` | Exclui (bloqueado se tiver empréstimos) |
 
-### Empréstimos
+**Empréstimos**
 
 | Método | Rota | Descrição |
 |---|---|---|
-| GET | `/emprestimos` | Lista apenas os **em andamento** (não devolvidos), com flag `atrasado` |
+| GET | `/emprestimos` | Lista todos os empréstimos (**log completo**, incluindo devolvidos), com `status` e flag `atrasado` |
 | POST | `/emprestimos` | Cria empréstimo (`id_aluno`, `id_unidade_equipamento`, `id_tecnico_retirada`; `dias_prazo` opcional, padrão 7) |
 | PUT | `/emprestimos/<id_emprestimo>/devolucao` | Registra devolução (libera a unidade) |
 | PUT | `/emprestimos/<id_emprestimo>` | Edita prazo de devolução ou observações |
 | DELETE | `/emprestimos/<id_emprestimo>` | Exclui empréstimo em andamento (devolvidos e com pendências são bloqueados) |
 
-### Pendências e relatórios
+**Pendências e relatórios**
 
 | Método | Rota | Descrição |
 |---|---|---|
@@ -196,16 +238,17 @@ Toda a API devolve JSON. Erros seguem o padrão `{"erro": "..."}` com status 4xx
 | GET | `/relatorios/atrasados` | Lista empréstimos vencidos com `dias_atraso` |
 | GET | `/status` | Health check da conexão com o banco |
 
-##  Regras de negócio
+### Regras de negócio
 
 - **Criação de empréstimo** — exige que o aluno não tenha pendência aberta nem empréstimo atrasado, e que a unidade esteja `DISPONIVEL`. Se aprovado, a unidade passa a `EMPRESTADO`.
 - **Atraso automático** — `_sincronizar_pendencias_atraso()` é executada antes de qualquer checagem de pendência e cria uma `Pendencia` `ATRASO` para cada empréstimo vencido que ainda não tenha uma.
 - **Devolução** — marca o empréstimo como `DEVOLVIDO`, coloca a unidade de volta em `DISPONIVEL` e resolve apenas as pendências `ATRASO` do empréstimo. Pendências de `DANO`/`MULTA`/`OUTRO` permanecem abertas até resolução manual pelo técnico.
 - **Exclusão protegida** — entidades com vínculos (empréstimos, pendências, unidades) retornam `409` em vez de quebrar a integridade do banco.
 
-##  Frontend
+### Frontend
 
 A única interface é o dashboard em `app/templates/dashboard.html`, servido em `/` (e em `/front` como atalho de compatibilidade). Ele renderiza tabelas e modais **inteiramente a partir da API JSON** — para adicionar uma capacidade nova no backend, é preciso também registrá-la em `app/static/js/dashboard.js` (registro de entidade, renderização de tabela e campos de formulário em `campos()`).
 
-##  Documentação de decisões
+## Documentação de decisões
+
 As decisões assumidas durante o desenvolvimento — incluindo as perguntas ao cliente, os critérios de aceite e as decisões da ferramenta de IA — estão registradas em **[DECISÕES.md](./DECISÕES.md)**.

@@ -14,6 +14,7 @@ const empty = (columns, text) => `<tr><td colspan="${columns}" class="empty-stat
 const dataCurta = iso => iso ? new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—";
 const atrasado = item => item.atrasado === true || (!item.data_hora_devolucao && new Date(item.data_hora_prevista_devolucao) < new Date());
 const badgeStatusUnidade = status => badge(status.replaceAll("_", " "), ({ DISPONIVEL: "badge-success", EMPRESTADO: "badge-warning", DANIFICADO: "badge-danger" })[status] || "badge-neutral");
+const badgeStatusEmprestimo = item => item.data_hora_devolucao ? badge("DEVOLVIDO", "badge-success") : (atrasado(item) ? badge("ATRASADO", "badge-danger") : badge("EM ANDAMENTO", "badge-warning"));
 
 function mostrarToast(mensagem, erro = false) {
   const toast = document.getElementById("toastLab");
@@ -55,8 +56,9 @@ function renderizar() {
   document.getElementById("kpiAtrasados").textContent = state.atrasos.length;
 
   const emprestimos = state.emprestimos.slice().reverse();
-  document.getElementById("tblDashboardEmprestimos").innerHTML = emprestimos.slice(0, 5).map(item => `
-    <tr><td>${escapeHtml(item.aluno)}</td><td>${escapeHtml(item.equipamento)}<br><span class="mono-tag">${escapeHtml(item.numero_patrimonio)}</span></td><td>${escapeHtml(item.tecnico_retirada)}</td><td>${dataCurta(item.data_hora_prevista_devolucao)}</td><td>${atrasado(item) ? badge("ATRASADO", "badge-danger") : badge("EM ANDAMENTO", "badge-warning")}</td></tr>`).join("") || empty(5, "Nenhum empréstimo ativo.");
+  const ativos = emprestimos.filter(item => !item.data_hora_devolucao);
+  document.getElementById("tblDashboardEmprestimos").innerHTML = ativos.slice(0, 5).map(item => `
+    <tr><td>${escapeHtml(item.aluno)}</td><td>${escapeHtml(item.equipamento)}<br><span class="mono-tag">${escapeHtml(item.numero_patrimonio)}</span></td><td>${escapeHtml(item.tecnico_retirada)}</td><td>${dataCurta(item.data_hora_prevista_devolucao)}</td><td>${badgeStatusEmprestimo(item)}</td></tr>`).join("") || empty(5, "Nenhum empréstimo ativo.");
 
   document.getElementById("tblAlunos").innerHTML = state.alunos.map(aluno => `
     <tr><td><span class="mono-tag">${escapeHtml(aluno.matricula)}</span></td><td>${escapeHtml(aluno.nome)}</td><td>${escapeHtml(aluno.email)}</td><td>${escapeHtml(aluno.telefone)}</td><td>${badge(aluno.status, aluno.status === "ATIVO" ? "badge-success" : "badge-neutral")}</td><td>${buttons("alunos", aluno.id_aluno)}</td></tr>`).join("") || empty(6, "Nenhum aluno cadastrado.");
@@ -71,7 +73,7 @@ function renderizar() {
     <tr><td><span class="mono-tag">${escapeHtml(tecnico.matricula)}</span></td><td>${escapeHtml(tecnico.nome)}</td><td>${buttons("tecnicos", tecnico.id_tecnico)}</td></tr>`).join("") || empty(3, "Nenhum técnico cadastrado.");
 
   document.getElementById("tblEmprestimos").innerHTML = emprestimos.map(emprestimo => `
-    <tr><td>${escapeHtml(emprestimo.aluno)}</td><td>${escapeHtml(emprestimo.equipamento)}</td><td><span class="mono-tag">${escapeHtml(emprestimo.numero_patrimonio)}</span></td><td>${escapeHtml(emprestimo.tecnico_retirada)}</td><td>${dataCurta(emprestimo.data_hora_prevista_devolucao)}</td><td>${atrasado(emprestimo) ? badge("ATRASADO", "badge-danger") : badge("EM ANDAMENTO", "badge-warning")}</td><td>${buttons("emprestimos", emprestimo.id_emprestimo, `<button class="btn-action" title="Registrar devolução" data-action="return" data-id="${emprestimo.id_emprestimo}"><i class="bi bi-box-arrow-in-left"></i></button>`)}</td></tr>`).join("") || empty(7, "Nenhum empréstimo ativo.");
+    <tr><td>${escapeHtml(emprestimo.aluno)}</td><td>${escapeHtml(emprestimo.equipamento)}</td><td><span class="mono-tag">${escapeHtml(emprestimo.numero_patrimonio)}</span></td><td>${escapeHtml(emprestimo.tecnico_retirada)}</td><td>${dataCurta(emprestimo.data_hora_prevista_devolucao)}</td><td>${dataCurta(emprestimo.data_hora_devolucao)}</td><td>${badgeStatusEmprestimo(emprestimo)}</td><td>${emprestimo.data_hora_devolucao ? "" : buttons("emprestimos", emprestimo.id_emprestimo, `<button class="btn-action" title="Registrar devolução" data-action="return" data-id="${emprestimo.id_emprestimo}"><i class="bi bi-box-arrow-in-left"></i></button>`)}</td></tr>`).join("") || empty(8, "Nenhum empréstimo cadastrado.");
 
   document.getElementById("tblPendencias").innerHTML = state.pendencias.map(pendencia => `
     <tr><td>${escapeHtml(state.alunos.find(aluno => aluno.id_aluno === pendencia.id_aluno)?.nome)}</td><td>${badge(pendencia.tipo, pendencia.tipo === "ATRASO" ? "badge-warning" : "badge-danger")}</td><td>${escapeHtml(pendencia.descricao)}</td><td>${badge(pendencia.status, pendencia.status === "ABERTA" ? "badge-danger" : "badge-success")}</td><td>${buttons("pendencias", pendencia.id_pendencia)}</td></tr>`).join("") || empty(5, "Nenhuma pendência cadastrada.");
