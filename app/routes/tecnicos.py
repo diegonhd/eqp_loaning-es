@@ -2,7 +2,7 @@ from flask import jsonify, request
 from sqlalchemy.exc import IntegrityError
 
 from app import db
-from app.models import Tecnico
+from app.models import Emprestimo, Tecnico
 from app.routes import main_bp
 
 
@@ -66,6 +66,17 @@ def editar_tecnico(id_tecnico):
 @main_bp.route("/tecnicos/<int:id_tecnico>", methods=["DELETE"])
 def excluir_tecnico(id_tecnico):
     tecnico = Tecnico.query.get_or_404(id_tecnico)
+
+    possui_emprestimo = Emprestimo.query.filter(
+        (Emprestimo.id_tecnico_retirada == id_tecnico)
+        | (Emprestimo.id_tecnico_devolucao == id_tecnico)
+    ).first()
+
+    if possui_emprestimo:
+        return jsonify(
+            erro="Este técnico possui empréstimos vinculados e não pode ser excluído."
+        ), 409
+
     db.session.delete(tecnico)
     db.session.commit()
     return jsonify(mensagem="Técnico excluído.")

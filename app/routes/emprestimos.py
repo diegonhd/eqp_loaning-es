@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from flask import jsonify, request
 
 from app import db
-from app.models import Aluno, Emprestimo, Pendencia, UnidadeEquipamento
+from app.models import Aluno, Emprestimo, Pendencia, Tecnico, UnidadeEquipamento
 from app.routes import main_bp
 
 
@@ -58,6 +58,8 @@ def listar_emprestimos():
             "tecnico_retirada": e.tecnico_retirada.nome if e.tecnico_retirada else None,
             "data_hora_emprestimo": e.data_hora_emprestimo.isoformat(),
             "data_hora_prevista_devolucao": e.data_hora_prevista_devolucao.isoformat(),
+            "status": e.status,
+            "observacoes": e.observacoes,
             "atrasado": e.esta_atrasado,
         }
         for e in emprestimos
@@ -78,8 +80,17 @@ def criar_emprestimo():
             erro="O ID do aluno, O ID da unidade do equipamento e o ID do tecnico que receberá o equipamento são obrigatorios"
         ), 400
 
+    try:
+        dias_prazo = int(dias_prazo)
+    except (TypeError, ValueError):
+        return jsonify(erro="dias_prazo invalido"), 400
+
+    if dias_prazo < 1:
+        return jsonify(erro="dias_prazo deve ser maior que zero"), 400
+
     aluno = Aluno.query.get_or_404(id_aluno)
     unidade = UnidadeEquipamento.query.get_or_404(id_unidade_equipamento)
+    Tecnico.query.get_or_404(id_tecnico_retirada)
 
     if _aluno_tem_pendencia(id_aluno):
         return jsonify(
@@ -122,12 +133,15 @@ def devolver_emprestimo(id_emprestimo):
     emprestimo.data_hora_devolucao = agora
     emprestimo.status = "DEVOLVIDO"
     if id_tecnico_devolucao:
+        Tecnico.query.get_or_404(id_tecnico_devolucao)
         emprestimo.id_tecnico_devolucao = id_tecnico_devolucao
 
     emprestimo.unidade_equipamento.status = "DISPONIVEL"
 
+    # Resolve apenas as pendências ATRASO geradas pelo próprio empréstimo.
+    # DANO/MULTA/OUTRO permanecem abertas até resolução manual do técnico.
     pendencias_abertas = Pendencia.query.filter_by(
-        id_emprestimo=id_emprestimo, status="ABERTA"
+        id_emprestimo=id_emprestimo, status="ABERTA", tipo="ATRASO"
     ).all()
     for pendencia in pendencias_abertas:
         pendencia.status = "RESOLVIDA"
@@ -165,6 +179,11 @@ def excluir_emprestimo(id_emprestimo):
     emprestimo = Emprestimo.query.get_or_404(id_emprestimo)
     if emprestimo.data_hora_devolucao is not None:
         return jsonify(erro="Empréstimos devolvidos nao podem ser excluidos."), 409
+
+    if Pendencia.query.filter_by(id_emprestimo=id_emprestimo).first():
+        return jsonify(
+            erro="Este empréstimo possui pendências vinculadas e não pode ser excluído."
+        ), 409
 
     emprestimo.unidade_equipamento.status = "DISPONIVEL"
     db.session.delete(emprestimo)

@@ -77,6 +77,12 @@ def editar_aluno(id_aluno):
 @main_bp.route("/alunos/<int:id_aluno>", methods=["DELETE"])
 def excluir_aluno(id_aluno):
     aluno = Aluno.query.get_or_404(id_aluno)
+
+    if aluno.emprestimos or aluno.pendencias:
+        return jsonify(
+            erro="Este aluno possui empréstimos ou pendências vinculadas e não pode ser excluído."
+        ), 409
+
     db.session.delete(aluno)
     db.session.commit()
-    return jsonify(mensagem="Aluno excluído..")
+    return jsonify(mensagem="Aluno excluído.")

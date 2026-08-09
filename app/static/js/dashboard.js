@@ -1,8 +1,9 @@
 const API = {
   alunos: "/alunos", equipamentos: "/equipamentos", unidades: "/unidades-equipamento",
-  tecnicos: "/tecnicos", emprestimos: "/emprestimos", pendencias: "/pendencias"
+  tecnicos: "/tecnicos", emprestimos: "/emprestimos", pendencias: "/pendencias",
+  atrasos: "/relatorios/atrasados"
 };
-const state = { alunos: [], equipamentos: [], unidades: [], tecnicos: [], emprestimos: [], pendencias: [] };
+const state = { alunos: [], equipamentos: [], unidades: [], tecnicos: [], emprestimos: [], pendencias: [], atrasos: [] };
 const labels = { alunos: "Aluno", equipamentos: "Equipamento", unidades: "Unidade", tecnicos: "Técnico", emprestimos: "Empréstimo", pendencias: "Pendência" };
 const idField = entity => ({ alunos: "id_aluno", equipamentos: "id_equipamento", unidades: "id_unidade_equipamento", tecnicos: "id_tecnico", emprestimos: "id_emprestimo", pendencias: "id_pendencia" })[entity];
 let modal, editing = null;
@@ -51,7 +52,7 @@ function renderizar() {
   document.getElementById("kpiTotalAlunos").textContent = state.alunos.length;
   document.getElementById("kpiTotalEquip").textContent = state.equipamentos.reduce((total, equipamento) => total + equipamento.quantidade_disponivel, 0);
   document.getElementById("kpiTotalTec").textContent = state.tecnicos.length;
-  document.getElementById("kpiAtrasados").textContent = state.emprestimos.filter(atrasado).length;
+  document.getElementById("kpiAtrasados").textContent = state.atrasos.length;
 
   const emprestimos = state.emprestimos.slice().reverse();
   document.getElementById("tblDashboardEmprestimos").innerHTML = emprestimos.slice(0, 5).map(item => `
@@ -74,6 +75,9 @@ function renderizar() {
 
   document.getElementById("tblPendencias").innerHTML = state.pendencias.map(pendencia => `
     <tr><td>${escapeHtml(state.alunos.find(aluno => aluno.id_aluno === pendencia.id_aluno)?.nome)}</td><td>${badge(pendencia.tipo, pendencia.tipo === "ATRASO" ? "badge-warning" : "badge-danger")}</td><td>${escapeHtml(pendencia.descricao)}</td><td>${badge(pendencia.status, pendencia.status === "ABERTA" ? "badge-danger" : "badge-success")}</td><td>${buttons("pendencias", pendencia.id_pendencia)}</td></tr>`).join("") || empty(5, "Nenhuma pendência cadastrada.");
+
+  document.getElementById("tblAtrasados").innerHTML = state.atrasos.map(item => `
+    <tr><td><span class="mono-tag">${escapeHtml(item.matricula)}</span></td><td>${escapeHtml(item.aluno)}</td><td>${escapeHtml(item.equipamento)}</td><td><span class="mono-tag">${escapeHtml(item.numero_patrimonio)}</span></td><td>${dataCurta(item.data_hora_emprestimo)}</td><td>${dataCurta(item.data_hora_prevista_devolucao)}</td><td>${badge(`${item.dias_atraso} dia(s)`, "badge-danger")}</td></tr>`).join("") || empty(7, "Nenhum empréstimo em atraso.");
 }
 
 function campos(entity, record = {}) {
