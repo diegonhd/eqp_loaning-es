@@ -1,4 +1,32 @@
+# Dependências e ambiente
 venv/
 .env
+
+# Variáveis de ambiente: qualquer variante (.env.local, .env.production, ...)
+# pode conter credenciais reais. Mantém apenas .env.example como template versionável.
+.env.*
+!.env.example
+
+# Cache do Python
 __pycache__/
 *.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs (podem conter stack traces e dados sensíveis)
+*.log
+
+# Backups de banco de dados (contêm dados completos)
+*.sql
+*.backup
+*.dump
+
+# Pasta de instância do Flask (segredos gerados em runtime)
+instance/
+
+# Editores / SO
+.idea/
+.vscode/
+.DS_Store
+*.swp
