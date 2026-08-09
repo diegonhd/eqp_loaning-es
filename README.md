@@ -31,8 +31,8 @@ A aplicação é uma **API REST em Flask** + um **dashboard único em JavaScript
 Clone o repositório e entre no diretório:
 
 ```bash
-git clone <url-do-repositorio>
-cd projeto1es
+git clone https://github.com/diegonhd/eqp_loaning-es/
+cd eqp_loaning-es
 ```
 
 ### 2. Criar o banco de dados
