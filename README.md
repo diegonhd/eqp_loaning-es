@@ -1,31 +1,211 @@
-# Projeto de Estrutura de Dados - Controle das Ferramentas de um Laboratório
-Projeto feito com auxílio do Assistente de IA Claude
+# Projeto de Estrutura de Dados — Controle das Ferramentas de um Laboratório
 
-## Organização do projeto
+Sistema para controlar o empréstimo de ferramentas de um laboratório universitário. Cada aluno pode retirar equipamentos por um prazo, devolvê-los ao técnico e acumular pendências (`ATRASO`, `DANO`, `MULTA`, `OUTRO`) que bloqueiam novas retiradas enquanto estiverem abertas.
 
-- `app/`: aplicação Flask; `routes/` contém a API JSON, organizada por domínio (`alunos.py`, `equipamentos.py`, `tecnicos.py`, `pendencias.py`, `emprestimos.py`); `templates/` contém as páginas HTML e `static/` seus arquivos CSS e JavaScript.
-- `migrations/`: histórico e configuração das migrações do banco com Alembic.
-- `run.py`: ponto de entrada para executar a aplicação.
+A aplicação é uma **API REST em Flask** + um **dashboard único em JavaScript puro** que consome essa API. Todo o código — comentários, mensagens e valores de status — está em **pt-BR**.
 
-A única interface web está em `app/templates/dashboard.html` e usa os ativos em
-`app/static/css/dashboard.css` e `app/static/js/dashboard.js`. Ela abre em `/`;
-`/front` permanece apenas como atalho de compatibilidade para a mesma página.
+## Funcionalidades
 
-## Decisões assumidas: profundidade e precisão do impacto declarado 
+- **Catálogo × patrimônio**: cada modelo de equipamento (ex.: *multímetro*) possui N unidades físicas identificadas por número de patrimônio, e o inventário é controlado por unidade.
+- **Empréstimos com prazo**: retirada registrada pelo técnico, prazo de devolução configurável (padrão 7 dias) e devolução que libera a unidade automaticamente.
+- **Pendências por aluno**: uma mesma pendência (atraso, dano, multa...) pode existir várias vezes e tipos diferentes ao mesmo tempo.
+- **Atraso automático**: empréstimos vencidos viram pendência `ATRASO` automaticamente, sem ação do técnico.
+- **Relatório de atrasados**: consulta para o técnico listar todos os empréstimos vencidos no momento, com os dias de atraso.
+- **Dashboard único**: interface web que lista, cria, edita e exclui tudo via API, sem recarregar a página.
 
-1) Granularidade das entidades
-### Decisão 
-O domínio do banco foi dividido em 5 entidades: Aluno, Equipamento, Técnico, Empréstimo e Pendência em vez de apenas ALuno, Equipamento, Técnico e Empréstimo - que teria um ENUM de status associados a todos os tipos de pendência - o que seria ineficiente).
+## Stack
 
-### Precisão
-O requisito do projeto explicita apenas que "Aluno com pendência não pode pegar mais nada". Logo, se a pendência tivesse apenas presente em um ENUM em um atributo status da tabela Empréstimo, o sistema não conseguiria representar bloqueios que não nascem de um empréstimo aberto. Esse formato faz com que se consiga separar as condições de empréstimo relacionados à devolução do equipamento - `Devolvido`, `Atrasado`, `Em Andamento` - dos outros tipos (`Atraso`, `Dano`, ...) já que não são estados mutualmente excludentes, ou seja, um equipamento devolvido foi danificado pelo aluno que o alugou não tem pendência de devolução, mas ainda possui uma pendência de dano associada a ele.
+| Camada | Tecnologia |
+|---|---|
+| Backend | Flask 3, Flask-SQLAlchemy, Flask-Migrate (Alembic) |
+| Banco de dados | PostgreSQL (`psycopg2-binary`) |
+| Configuração | `python-dotenv` (arquivo `.env`) |
+| Frontend | HTML + Bootstrap (CDN) + JavaScript puro |
 
-### Profundida
-Essa separação resolve qualquer tipo futuro de pendência (multa, advertência, dano) sem alterar a estrutura de `Emprestimo`.
+## Como rodar
 
-2) Técnico como entidade própria
-### Decisão
-Criar uma tabela `Técnico` com atributos id, nome e matricula, em vez de um campo de texto livre ou um sistema completo de login de usuários.
+**Pré-requisitos:** Python 3.x e um PostgreSQL em execução.
 
-### Precisão
+### 1. Instalar as dependências
 
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Configurar o ambiente
+
+```bash
+copy .env.example .env    # Windows
+# ou
+cp .env.example .env      # Unix
+```
+
+Edite `.env` e ajuste a `DATABASE_URL` para a conexão do seu PostgreSQL:
+
+```
+DATABASE_URL=postgresql://usuario:senha@localhost:5432/laboratorio
+```
+
+`SECRET_KEY` é opcional e assume um valor de desenvolvimento por padrão.
+
+### 3. Aplicar as migrações do banco
+
+```bash
+flask --app run db upgrade
+```
+
+### 4. Executar o servidor
+
+```bash
+python run.py
+```
+
+O servidor sobe em `http://127.0.0.1:5000` (modo debug, sem reloader).
+
+### Sanity check
+
+Abra `http://127.0.0.1:5000/status` — deve retornar:
+
+```json
+{ "status": "ok", "banco": "Conectado" }
+```
+
+### Migrações (quando o modelo de dados mudar)
+
+```bash
+flask --app run db migrate -m "descrição da mudança"   # gera migração
+flask --app run db upgrade                             # aplica migração
+flask --app run db downgrade                           # desfaz a última
+```
+
+## 📁 Estrutura do projeto
+
+```
+projeto1es/
+├── app/
+│   ├── __init__.py            # create_app(), banco, migrações e handler global de erros
+│   ├── models.py              # Entidades SQLAlchemy
+│   ├── routes/                # API JSON, um módulo por domínio
+│   │   ├── __init__.py        # main_bp + rota /status
+│   │   ├── alunos.py
+│   │   ├── equipamentos.py
+│   │   ├── tecnicos.py
+│   │   ├── emprestimos.py
+│   │   └── pendencias.py
+│   ├── views.py               # Página única (dashboard) em "/" e "/front"
+│   ├── templates/
+│   │   └── dashboard.html
+│   └── static/
+│       ├── css/dashboard.css
+│       └── js/dashboard.js
+├── migrations/                # Histórico e configuração do Alembic
+├── run.py                     # Ponto de entrada do servidor
+├── requirements.txt
+└── .env.example
+```
+
+##  Modelo de dados
+
+```
+Equipamento (catálogo)  1 ──── *  UnidadeEquipamento (patrimônio)
+Aluno                    1 ──── *  Emprestimo        * ──── 1  UnidadeEquipamento
+Aluno                    1 ──── *  Pendencia         * ──── 1  Emprestimo (opcional)
+Tecnico (retirada)       1 ──── *  Emprestimo
+Tecnico (devolução)      1 ──── *  Emprestimo        (id_tecnico_devolucao é opcional)
+```
+
+| Entidade | Descrição | Campos principais |
+|---|---|---|
+| `Equipamento` | Item do catálogo (ex.: *multímetro*) | `nome`, `descricao`, `categoria` |
+| `UnidadeEquipamento` | Exemplar físico do catálogo | `numero_patrimonio` (único), `status` |
+| `Aluno` | Quem retira equipamentos | `nome`, `matricula` (única), `email`, `telefone`, `status` |
+| `Tecnico` | Quem opera retiradas e devoluções | `nome`, `matricula` (única) |
+| `Emprestimo` | Retirada de uma unidade por um aluno | `data_hora_prevista_devolucao`, `data_hora_devolucao`, `status`, `observacoes` |
+| `Pendencia` | Bloqueio/manifestação sobre um aluno | `tipo`, `descricao`, `status` |
+
+### Valores de status
+
+| Campo | Valores possíveis |
+|---|---|
+| `Aluno.status` | `ATIVO` |
+| `UnidadeEquipamento.status` | `DISPONIVEL`, `EMPRESTADO` (automático), `EM_MANUTENCAO`, `DANIFICADO`, `INATIVO` |
+| `Emprestimo.status` | `EM_ANDAMENTO`, `DEVOLVIDO` |
+| `Pendencia.tipo` | `ATRASO`, `DANO`, `MULTA`, `OUTRO` |
+| `Pendencia.status` | `ABERTA`, `RESOLVIDA` |
+
+> O atraso de um empréstimo **não é persistido**: ele é calculado na hora pela propriedade `Emprestimo.esta_atrasado`.
+
+##  API
+
+Toda a API devolve JSON. Erros seguem o padrão `{"erro": "..."}` com status 4xx; o handler global converte até exceções inesperadas em JSON 500.
+
+### Alunos
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/alunos` | Lista alunos |
+| GET | `/alunos/<id_aluno>` | Obtém um aluno |
+| POST | `/alunos` | Cria aluno (`nome`, `matricula` obrigatórios) |
+| PUT | `/alunos/<id_aluno>` | Edita aluno |
+| DELETE | `/alunos/<id_aluno>` | Exclui (bloqueado se houver empréstimos ou pendências) |
+
+### Equipamentos e unidades
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/equipamentos` | Lista catálogo com `quantidade_total` e `quantidade_disponivel` |
+| GET | `/equipamentos/<id_equipamento>` | Obtém um item do catálogo |
+| POST | `/equipamentos` | Cria item (`nome` obrigatório) |
+| PUT | `/equipamentos/<id_equipamento>` | Edita item |
+| DELETE | `/equipamentos/<id_equipamento>` | Exclui (bloqueado se tiver unidades) |
+| GET | `/unidades-equipamento` | Lista unidades físicas |
+| GET | `/unidades-equipamento/<id_unidade_equipamento>` | Obtém uma unidade |
+| POST | `/unidades-equipamento` | Cria unidade (`id_equipamento` e `numero_patrimonio` obrigatórios) |
+| PUT | `/unidades-equipamento/<id_unidade_equipamento>` | Edita unidade (status de unidade com empréstimo ativo é bloqueado) |
+| DELETE | `/unidades-equipamento/<id_unidade_equipamento>` | Exclui (bloqueado se tiver empréstimos) |
+
+### Técnicos
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/tecnicos` | Lista técnicos |
+| GET | `/tecnicos/<id_tecnico>` | Obtém um técnico |
+| POST | `/tecnicos` | Cria técnico (`nome`, `matricula` obrigatórios) |
+| PUT | `/tecnicos/<id_tecnico>` | Edita técnico |
+| DELETE | `/tecnicos/<id_tecnico>` | Exclui (bloqueado se tiver empréstimos) |
+
+### Empréstimos
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/emprestimos` | Lista apenas os **em andamento** (não devolvidos), com flag `atrasado` |
+| POST | `/emprestimos` | Cria empréstimo (`id_aluno`, `id_unidade_equipamento`, `id_tecnico_retirada`; `dias_prazo` opcional, padrão 7) |
+| PUT | `/emprestimos/<id_emprestimo>/devolucao` | Registra devolução (libera a unidade) |
+| PUT | `/emprestimos/<id_emprestimo>` | Edita prazo de devolução ou observações |
+| DELETE | `/emprestimos/<id_emprestimo>` | Exclui empréstimo em andamento (devolvidos e com pendências são bloqueados) |
+
+### Pendências e relatórios
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/pendencias` | Lista pendências |
+| GET | `/pendencias/<id_pendencia>` | Obtém uma pendência |
+| POST | `/pendencias` | Cria pendência (`id_aluno`, `tipo` obrigatórios) |
+| PUT | `/pendencias/<id_pendencia>` | Edita pendência (ex.: resolver manualmente) |
+| DELETE | `/pendencias/<id_pendencia>` | Exclui pendência |
+| GET | `/relatorios/atrasados` | Lista empréstimos vencidos com `dias_atraso` |
+| GET | `/status` | Health check da conexão com o banco |
+
+##  Regras de negócio
+
+- **Criação de empréstimo** — exige que o aluno não tenha pendência aberta nem empréstimo atrasado, e que a unidade esteja `DISPONIVEL`. Se aprovado, a unidade passa a `EMPRESTADO`.
+- **Atraso automático** — `_sincronizar_pendencias_atraso()` é executada antes de qualquer checagem de pendência e cria uma `Pendencia` `ATRASO` para cada empréstimo vencido que ainda não tenha uma.
+- **Devolução** — marca o empréstimo como `DEVOLVIDO`, coloca a unidade de volta em `DISPONIVEL` e resolve apenas as pendências `ATRASO` do empréstimo. Pendências de `DANO`/`MULTA`/`OUTRO` permanecem abertas até resolução manual pelo técnico.
+- **Exclusão protegida** — entidades com vínculos (empréstimos, pendências, unidades) retornam `409` em vez de quebrar a integridade do banco.
+
+##  Frontend
+
+A única interface é o dashboard em `app/templates/dashboard.html`, servido em `/` (e em `/front` como atalho de compatibilidade). Ele renderiza tabelas e modais **inteiramente a partir da API JSON** — para adicionar uma capacidade nova no backend, é preciso também registrá-la em `app/static/js/dashboard.js` (registro de entidade, renderização de tabela e campos de formulário em `campos()`).
+
+##  Documentação de decisões
+As decisões assumidas durante o desenvolvimento — incluindo as perguntas ao cliente, os critérios de aceite e as decisões da ferramenta de IA — estão registradas em **[DECISÕES.md](./DECISÕES.md)**.
