@@ -1,4 +1,4 @@
-# Registro de Decisões do Projeto
+# 📋 Registro de Decisões do Projeto
 
 Documento que consolida as **decisões assumidas** no desenvolvimento, as **perguntas ao cliente**, os **critérios de aceite** executáveis e as **decisões da ferramenta de IA**.
 
@@ -16,14 +16,14 @@ Cada decisão segue o padrão: o que **o pedido não especifica** (X) → o que 
 | 4 | O que é uma "pendência" | Tabela própria com tipos `ATRASO \| DANO \| MULTA \| OUTRO` e status `ABERTA \| RESOLVIDA`, permitindo **várias por aluno** | Um único flag "bloqueado" no aluno | Remover a tabela e o relacionamento, adicionar `bloqueado` em `aluno` e perder o histórico/tipo |
 | 5 | Como o relatório de atrasos é gerado | `esta_atrasado` deriva de `data_hora_prevista_devolucao < agora`, **sem coluna persistida** | Congelar o atraso num campo | Adicionar coluna em `emprestimo` + migração + lógica de snapshot |
 | 6 | Se atraso vira pendência sozinho | `_sincronizar_pendencias_atraso()` cria pendência `ATRASO` aberta para **cada vencido** | Só pendências lançadas manualmente bloqueiam | Remover a sincronização e bloquear apenas por empréstimo vencido (ou não bloquear) |
-| 7 | O destino das pendências na devolução | **Todas** as abertas do empréstimo viram `RESOLVIDA` | `DANO`/`MULTA` continuarem abertas até avaliação | Filtrar por tipo na devolução e só resolver `ATRASO` |
+| 7 | O destino das pendências na devolução | **Apenas** as pendências `ATRASO` do empréstimo viram `RESOLVIDA`; `DANO`/`MULTA`/`OUTRO` permanecem abertas até avaliação manual | Todas as abertas fossem resolvidas automaticamente | Resolver todas as pendências abertas na devolução, sem exigir avaliação do técnico |
 | 8 | Quem pode operar o sistema | Qualquer pessoa com a URL (**acesso aberto**) | Só técnicos autorizados | Login, sessão e checagem de papel em todas as mutações + tela de login |
 | 9 | A forma da interface | Uma página HTML consumindo a API JSON | Portais separados por papel | Novas rotas/templates e divisão de permissões |
 | 10 | O fuso horário | Armazenar `datetime.utcnow()` e exibir via `toLocaleString` do navegador | Horário local do laboratório consistente | Armazenar com fuso explícito e converter na exibição |
 | 11 | O formato dos status | Strings PT-BR em maiúsculas: `DISPONIVEL`, `EMPRESTADO`, `EM_MANUTENCAO`, `DANIFICADO`, `INATIVO` | Códigos numéricos ou ícones | Camada de mapeamento na API e no frontend |
 | 12 | Como cancelar um empréstimo | `DELETE` remove o registro e libera a unidade (exclusão física) | Manter histórico (cancelamento lógico) | Soft-delete com status `CANCELADO` |
 | 13 | Quem recebe a devolução | A devolução pode ser registrada **sem** informar o técnico | Técnico de devolução obrigatório | Tornar a coluna `NOT NULL` e exigir o campo na tela |
-| 14 | Rejeitar prazo inválido | Aceitar qualquer inteiro (0/negativo) | Rejeitar | Validar `dias_prazo > 0` no POST e no frontend |
+| 14 | Rejeitar prazo inválido | Validar `dias_prazo > 0`, rejeitando 0/negativos com `400` | Aceitar qualquer inteiro (0/negativo) | Empréstimos nasceriam já vencidos, distorcendo o relatório de atrasos |
 | 15 | Se o histórico de devoluções é consultável | `GET /emprestimos` = "o que está emprestado" (não devolvidos), **sem** endpoint de histórico | Consultar o passado | Novo endpoint/filtro e nova tabela na UI |
 
 ---
@@ -32,7 +32,7 @@ Cada decisão segue o padrão: o que **o pedido não especifica** (X) → o que 
 
 > Exatamente 3 perguntas de maior impacto, cada uma com o que muda em cada resposta.
 
-###  Q1 — Acesso
+### Q1 — Acesso
 
 **"Quem deve operar o sistema: qualquer pessoa do laboratório ou só técnicos autenticados?"**
 
@@ -40,15 +40,15 @@ Cada decisão segue o padrão: o que **o pedido não especifica** (X) → o que 
 - **R. só técnicos com login:** adiciona autenticação, senha, sessão e proteção em todas as rotas de escrita + tela de login.
 - **Impacto:** sistêmico (quase todas as rotas).
 
-###  Q2 — Destino das pendências na devolução
+### Q2 — Destino das pendências na devolução
 
 **"Ao devolver, pendências de dano/multa devem ser resolvidas automaticamente ou ficar abertas para avaliação?"**
 
-- **R. auto-resolver (atual):** mantém o comportamento atual.
-- **R. manter abertas:** muda `devolver_emprestimo` para só resolver `ATRASO`; dano exige fluxo manual de resolução.
+- **R. manter abertas (atual):** mantém o comportamento atual — `devolver_emprestimo` resolve apenas `ATRASO`; `DANO`/`MULTA`/`OUTRO` exigem resolução manual.
+- **R. auto-resolver:** mudaria `devolver_emprestimo` para resolver todas as pendências abertas do empréstimo de uma vez.
 - **Impacto:** na regra central de bloqueio (aluno com `DANO` aberto continua bloqueado).
 
-###  Q3 — Prazo de devolução
+### Q3 — Prazo de devolução
 
 **"O prazo é fixo, definido por equipamento ou escolhido pelo técnico no momento?"**
 
@@ -57,7 +57,7 @@ Cada decisão segue o padrão: o que **o pedido não especifica** (X) → o que 
 - **R. por equipamento:** coluna nova em `equipamento` + migração.
 - **Impacto:** no schema e no cálculo de atraso que alimenta o relatório.
 
-###  Q4 — Equipamento perdido
+### Q4 — Equipamento perdido
 
 **"Como representar um equipamento que nunca é devolvido?"**
 
@@ -96,9 +96,9 @@ Cada decisão segue o padrão: o que **o pedido não especifica** (X) → o que 
 
 **Implementação:** `_sincronizar_pendencias_atraso` e `devolver_emprestimo` (`app/routes/emprestimos.py`).
 
-- **O que foi decidido:** materializar atraso como `Pendencia` persistida e resolver tudo ao devolver.
+- **O que foi decidido:** materializar atraso como `Pendencia` persistida e resolver as pendências `ATRASO` do empréstimo ao devolver.
 - **Por que é plausível:** uniformiza o bloqueio "aluno com pendência" e dá registro durável.
-- **Por que pode estar inadequada:** duplica a lógica de atraso (o relatório consulta os empréstimos diretamente e ainda sincroniza pendências); resolver `DANO`/`MULTA` na devolução assume que devolver = fim de qualquer pendência, decisão que o cliente não tomou; e um `GET` (`/relatorios/atrasados`) altera o banco ao chamar a sincronização.
+- **Por que pode estar inadequada:** duplica a lógica de atraso (o relatório consulta os empréstimos diretamente e ainda sincroniza pendências); e um `GET` (`/relatorios/atrasados`) altera o banco ao chamar a sincronização.
 
 ### D2 — Prazo padrão de 7 dias
 
@@ -108,10 +108,10 @@ Cada decisão segue o padrão: o que **o pedido não especifica** (X) → o que 
 - **Por que é plausível:** default razoável.
 - **Por que pode estar inadequada:** se a política real do laboratório diferir, todos os empréstimos nascem com prazo errado, distorcendo o relatório de atrasos.
 
-### D3 — Tratamento de erro inconsistente para o técnico
+### D3 — Validação dos IDs de técnico e exclusões protegidas
 
-**Implementação:** rotas de empréstimo e exclusão de entidades (`app/routes/emprestimos.py` e `app/routes/equipamentos.py`).
+**Implementação:** rotas de empréstimo e exclusões de entidades (`app/routes/emprestimos.py`, `app/routes/equipamentos.py`, `app/routes/alunos.py`, `app/routes/tecnicos.py`).
 
-- **O que foi decidido:** validar `id_aluno`/`id_unidade` com `get_or_404`, mas aceitar `id_tecnico_retirada`/`id_tecnico_devolucao` sem validação (e excluir entidades com filhos sem tratar `IntegrityError`).
-- **Por que é plausível:** o técnico foi tratado como entidade secundária no fluxo.
-- **Por que pode estar inadequada:** id de técnico digitado errado gera HTTP 500 em vez de `{"erro": ...}`, quebrando o contrato de erros e a promessa de "simples de usar".
+- **O que foi decidido:** validar também `id_tecnico_retirada` e `id_tecnico_devolucao` com `get_or_404`, e proteger a exclusão de entidades com vínculos retornando `409` em vez de deixar o `IntegrityError` vazar como erro 500.
+- **Por que é plausível:** mantém o contrato de erros `{"erro": ...}` e a promessa de "simples de usar".
+- **Por que pode estar inadequada:** originalmente a validação dos técnicos foi omitida (o técnico era tratado como entidade secundária), gerando HTTP 500 para ID digitado errado; a correção adotou `get_or_404`, que devolve `404` genérico — informativo, mas não aponta qual campo específico está errado.
