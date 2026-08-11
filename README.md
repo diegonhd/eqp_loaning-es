@@ -169,7 +169,7 @@ Tecnico (devolução)      1 ──── *  Emprestimo        (id_tecnico_devol
 
 | Campo | Valores possíveis |
 |---|---|
-| `Aluno.status` | `ATIVO` |
+| `Aluno.status` | `ATIVO`, `INATIVO` |
 | `UnidadeEquipamento.status` | `DISPONIVEL`, `EMPRESTADO` (automático), `EM_MANUTENCAO`, `DANIFICADO`, `INATIVO` |
 | `Emprestimo.status` | `EM_ANDAMENTO`, `DEVOLVIDO` |
 | `Pendencia.tipo` | `ATRASO`, `DANO`, `MULTA`, `OUTRO` |
@@ -240,7 +240,7 @@ Toda a API devolve JSON. Erros seguem o padrão `{"erro": "..."}` com status 4xx
 
 ### Regras de negócio
 
-- **Criação de empréstimo** — exige que o aluno não tenha pendência aberta nem empréstimo atrasado, e que a unidade esteja `DISPONIVEL`. Se aprovado, a unidade passa a `EMPRESTADO`.
+- **Criação de empréstimo** — exige que o aluno esteja `ATIVO`, não tenha pendência aberta nem empréstimo atrasado, e que a unidade esteja `DISPONIVEL`. Se aprovado, a unidade passa a `EMPRESTADO`.
 - **Atraso automático** — `_sincronizar_pendencias_atraso()` é executada antes de qualquer checagem de pendência e cria uma `Pendencia` `ATRASO` para cada empréstimo vencido que ainda não tenha uma.
 - **Devolução** — marca o empréstimo como `DEVOLVIDO`, coloca a unidade de volta em `DISPONIVEL` e resolve apenas as pendências `ATRASO` do empréstimo. Pendências de `DANO`/`MULTA`/`OUTRO` permanecem abertas até resolução manual pelo técnico.
 - **Exclusão protegida** — entidades com vínculos (empréstimos, pendências, unidades) retornam `409` em vez de quebrar a integridade do banco.

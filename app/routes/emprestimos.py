@@ -93,6 +93,11 @@ def criar_emprestimo():
     unidade = UnidadeEquipamento.query.get_or_404(id_unidade_equipamento)
     Tecnico.query.get_or_404(id_tecnico_retirada)
 
+    if aluno.status != "ATIVO":
+        return jsonify(
+            erro="Aluno inativo não pode retirar equipamentos."
+        ), 403
+
     if _aluno_tem_pendencia(id_aluno):
         return jsonify(
             erro="O aluno possui pendência e não pode retirar nenhum equipamento."
