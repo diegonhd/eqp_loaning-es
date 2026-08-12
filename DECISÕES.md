@@ -1,4 +1,4 @@
-# 📋 Registro de Decisões do Projeto
+# Registro de Decisões do Projeto
 
 Documento que consolida as **decisões assumidas** no desenvolvimento, as **perguntas ao cliente**, os **critérios de aceite** executáveis e as **decisões da ferramenta de IA**.
 
